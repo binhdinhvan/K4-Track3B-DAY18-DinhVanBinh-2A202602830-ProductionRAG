@@ -9,6 +9,9 @@ import json
 import os
 import sys
 import subprocess
+import math
+import tempfile
+import xml.etree.ElementTree as ET
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -36,7 +39,16 @@ def check_json(path: str, required_keys: list[str]) -> bool:
         if missing:
             print(f"  ❌ {path} thiếu keys: {missing}")
             return False
-        print(f"  ✅ {path} — keys OK")
+        metrics = ("faithfulness", "answer_relevancy", "context_precision", "context_recall")
+        scores = data.get("aggregate", {})
+        if data.get("num_questions", 0) <= 0 or any(
+            not isinstance(scores.get(name), (int, float))
+            or not math.isfinite(scores[name]) or not 0 <= scores[name] <= 1
+            for name in metrics
+        ):
+            print(f"  ❌ {path} — chưa có kết quả đánh giá hợp lệ")
+            return False
+        print(f"  ✅ {path} — keys và metrics OK")
         return True
     except (json.JSONDecodeError, FileNotFoundError) as e:
         print(f"  ❌ {path} — {e}")
@@ -51,27 +63,36 @@ def check_todos() -> int:
             if f.endswith(".py"):
                 with open(os.path.join(root, f), encoding="utf-8") as fh:
                     for line in fh:
-                        if "# TODO:" in line:
+                        if "# TODO" in line:
                             count += 1
     return count
 
 
-def run_tests() -> tuple[int, int]:
+def run_tests(offline: bool = False) -> tuple[int, int]:
     """Run pytest and return (passed, total)."""
     try:
-        import re
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=no", "-q"],
-            capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace"
-        )
-        lines = result.stdout.strip().split("\n")
-        summary = lines[-1] if lines else ""
-        m_pass = re.search(r"(\d+)\s+passed", summary)
-        m_fail = re.search(r"(\d+)\s+failed", summary)
-        passed = int(m_pass.group(1)) if m_pass else 0
-        failed = int(m_fail.group(1)) if m_fail else 0
-        total = passed + failed
-        return passed, total
+        with tempfile.TemporaryDirectory() as directory:
+            report = os.path.join(directory, "pytest.xml")
+            arguments = ["tests/", "-q", "--tb=short", f"--junitxml={report}"]
+            command = [sys.executable, "-m", "pytest", *arguments]
+            if offline:
+                command = [sys.executable, "-c",
+                           "import config; config.OPENAI_API_KEY = ''; import pytest; "
+                           + f"raise SystemExit(pytest.main({arguments!r}))"]
+            result = subprocess.run(
+                command,
+                capture_output=True, text=True, timeout=900, encoding="utf-8", errors="replace"
+            )
+            print(result.stdout)
+            if not os.path.exists(report):
+                print(result.stderr)
+                return 0, 0
+            cases = ET.parse(report).findall(".//testcase")
+            passed = sum(not any(case.find(tag) is not None for tag in ("failure", "error", "skipped")) for case in cases)
+            total = len(cases)
+            if result.returncode != 0:
+                total = max(total, passed + 1)
+            return passed, total
     except Exception as e:
         print(f"  ⚠️  pytest error: {e}")
         return 0, 0
@@ -99,7 +120,14 @@ def validate():
 
     # 3. Analysis
     print("\n📝 Analysis:")
-    check_file("analysis/failure_analysis.md")
+    if not check_file("analysis/failure_analysis.md"):
+        errors += 1
+    else:
+        with open("analysis/failure_analysis.md", encoding="utf-8") as f:
+            content = f.read()
+        if "(copy template)" in content or "[Họ và tên]" in content:
+            print("  ❌ Failure analysis còn nội dung template")
+            errors += 1
 
     # 4. Individual reflections
     print("\n👤 Individual reflections:")
@@ -117,6 +145,7 @@ def validate():
             print(f"  ✅ {r}")
     else:
         print(f"  ⚠️  Chưa có file reflection cá nhân (đặt tại {ref_dir}/reflection_[HọTên].md hoặc analysis/reflection_[HọTên].md)")
+        errors += 1
 
     # 5. TODO count
     print("\n🔧 TODO markers:")
@@ -125,24 +154,39 @@ def validate():
         print("  ✅ Không còn TODO nào")
     else:
         print(f"  ⚠️  Còn {todo_count} TODO chưa implement")
+        errors += 1
 
     # 6. Tests
     print("\n🧪 Auto-tests:")
-    passed, total = run_tests()
+    offline = "--offline" in sys.argv
+    if offline:
+        print("  Kiểm tra fallback không gọi API; không thay thế đánh giá RAGAS thật.")
+    passed, total = run_tests(offline=offline)
     if total > 0:
         pct = passed / total * 100
-        print(f"  {'✅' if pct >= 80 else '⚠️'} {passed}/{total} tests passed ({pct:.0f}%)")
+        print(f"  {'✅' if pct == 100 else '⚠️'} {passed}/{total} tests passed ({pct:.0f}%)")
+        if passed != total:
+            errors += 1
     else:
         print("  ⚠️  Không chạy được tests")
+        errors += 1
 
     # 7. Summary
+    latency_path = "reports/latency_report.json"
+    if os.path.exists(latency_path):
+        with open(latency_path, encoding="utf-8") as f:
+            status = json.load(f).get("evaluation_status", "complete")
+        if status != "complete":
+            print("  ⚠️  Lần đánh giá mới chưa hoàn tất; báo cáo RAGAS hiện tại thuộc lần chạy trước.")
+            errors += 1
     print("\n" + "=" * 50)
     if errors == 0:
         print("🚀 Bài lab sẵn sàng để nộp!")
     else:
         print(f"❌ Có {errors} lỗi. Sửa trước khi nộp.")
     print("=" * 50)
+    return errors
 
 
 if __name__ == "__main__":
-    validate()
+    sys.exit(1 if validate() else 0)

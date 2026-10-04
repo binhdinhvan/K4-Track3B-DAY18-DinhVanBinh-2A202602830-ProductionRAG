@@ -3,6 +3,28 @@
 **K4-Track3B · Ngày 18 · Production RAG**  
 **Thời gian:** 2h implement + 30 phút reflection
 
+## Bài làm cá nhân
+
+- **Học viên:** Đinh Văn Bình — **MSSV:** 2A202602830.
+- **Tên repository theo quy chuẩn nộp:** `K4-Track3B-DAY18-DinhVanBinh-2A202602830-ProductionRAG`.
+- **GitHub (Public):** [Repository bài nộp](https://github.com/binhdinhvan/K4-Track3B-DAY18-DinhVanBinh-2A202602830-ProductionRAG).
+- [Failure analysis và bảng so sánh](analysis/failure_analysis.md).
+- [Reflection: mapping, debugging và action plan](analysis/reflections/reflection_DinhVanBinh.md).
+- [Báo cáo RAGAS](reports/ragas_report.json) và [baseline](reports/naive_baseline_report.json).
+- Số liệu so sánh chunking nằm trong reflection; latency breakdown nằm trong failure analysis. Các file audit và đầu ra trung gian bổ sung chỉ lưu local, không thuộc bài nộp.
+
+Kiểm tra bài làm trong môi trường Windows hiện tại:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests/ -v
+.\venv\Scripts\python.exe src/pipeline.py
+.\venv\Scripts\python.exe check_lab.py
+```
+
+Nếu endpoint API chưa đủ số dư, kiểm tra code/fallback bằng `python check_lab.py --offline`. Dùng `python src/pipeline.py --evaluate-only` để đánh giá lại answers/contexts đã lưu mà không chạy lại enrichment. Lần đánh giá đầu ngày 04/10/2026 gặp `402 INSUFFICIENT_BALANCE`; sau đổi cấu hình API đã hoàn tất 20 câu × 4 metric. Bảng điểm và bottom-5 hiện dùng báo cáo mới: Faithfulness 0,8457; Answer Relevancy 0,7582; Context Precision 0,9917; Context Recall 0,9333. Checker sẽ báo chưa sẵn sàng nếu một lần evaluation mới còn thiếu.
+
+Pipeline retrieve/rerank child, khôi phục parent gốc và loại context trùng trước khi gọi LLM. Báo cáo lưu cả context và metric từng câu để kiểm tra nguyên nhân lỗi. Hai PDF scan cần OCR được bỏ qua có cảnh báo; OCR chưa nằm trong pipeline này. API enrichment lỗi sẽ dùng fallback, còn RAGAS không đánh giá đủ câu sẽ dừng và giữ nguyên báo cáo cũ.
+
 ---
 
 ## Tổng quan

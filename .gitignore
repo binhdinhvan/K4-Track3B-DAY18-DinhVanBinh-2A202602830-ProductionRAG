@@ -1,8 +1,50 @@
+# Credentials (keep the configuration template)
 .env
-.DS_Store
+.env.*
+!.env.example
+
+# Python environments and caches
+venv/
+.venv/
+env/
+ENV/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
-qdrant_data/
+.mypy_cache/
+.ruff_cache/
+.cache/
 *.egg-info/
+build/
+dist/
+
+# Test coverage, logs and temporary files
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.log
+*.tmp
+*.bak
+
+# Local services and editor settings
+qdrant_data/
+.vscode/
+.idea/
 CODELAB.md
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Extra local audit, regression checks and intermediate outputs
+/reports/submission_check.md
+/reports/chunking_comparison.json
+/reports/evaluation_inputs.json
+/reports/latency_report.json
+/reports/latency_breakdown.md
+/reports/history/
+/tests/test_pipeline.py
+
+# Keep required code, corpus, RAGAS/baseline reports, failure analysis and reflection.
