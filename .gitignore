@@ -38,13 +38,8 @@ CODELAB.md
 Thumbs.db
 desktop.ini
 
-# Extra local audit, regression checks and intermediate outputs
+# Local audit notes and obsolete run snapshots
 /reports/submission_check.md
-/reports/chunking_comparison.json
-/reports/evaluation_inputs.json
-/reports/latency_report.json
-/reports/latency_breakdown.md
 /reports/history/
-/tests/test_pipeline.py
 
-# Keep required code, corpus, RAGAS/baseline reports, failure analysis and reflection.
+# Keep code, tests, corpus, evaluation inputs, current reports, analysis and reflection.

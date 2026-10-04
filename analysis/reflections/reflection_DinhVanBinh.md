@@ -82,4 +82,4 @@ Pipeline dùng hierarchical chunking → combined enrichment → BM25 + Dense + 
 | Tuần 2 — 12–18/10/2026 | Query decomposition và ablation chunking/search | So sánh trên cùng test set; không làm giảm tính đúng của câu lookup/negation |
 | Tuần 3 — 19–25/10/2026 | Benchmark latency, kiểm tra thủ công bottom-5 | Có bảng p50/p95, chi phí/query và ít nhất 3 metric RAGAS ≥ 0,70; ghi rõ trường hợp chưa đạt |
 
-Báo cáo mới đã hoàn tất nằm ở `reports/ragas_report.json`; thời gian thực đo và phân tích được ghi trong `analysis/failure_analysis.md`. Snapshot trước sửa, lần lỗi quota và các JSON trung gian chỉ được giữ local, không thuộc bài nộp.
+Báo cáo mới đã hoàn tất nằm ở `reports/ragas_report.json`; thời gian thực đo và phân tích được ghi trong `analysis/failure_analysis.md` và `reports/latency_report.json`. `reports/evaluation_inputs.json` cho phép đánh giá lại mà không gọi lại enrichment/generation; `reports/chunking_comparison.json` lưu thống kê chunking. Snapshot trước sửa và lần lỗi quota chỉ được giữ local.

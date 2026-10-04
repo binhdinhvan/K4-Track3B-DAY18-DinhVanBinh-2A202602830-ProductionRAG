@@ -11,7 +11,8 @@
 - [Failure analysis và bảng so sánh](analysis/failure_analysis.md).
 - [Reflection: mapping, debugging và action plan](analysis/reflections/reflection_DinhVanBinh.md).
 - [Báo cáo RAGAS](reports/ragas_report.json) và [baseline](reports/naive_baseline_report.json).
-- Số liệu so sánh chunking nằm trong reflection; latency breakdown nằm trong failure analysis. Các file audit và đầu ra trung gian bổ sung chỉ lưu local, không thuộc bài nộp.
+- Số liệu so sánh chunking nằm trong reflection và [JSON thống kê](reports/chunking_comparison.json); [latency breakdown](reports/latency_breakdown.md) có [số liệu gốc](reports/latency_report.json).
+- [Answers/contexts đã lưu](reports/evaluation_inputs.json) hỗ trợ `--evaluate-only`; tests hồi quy bổ sung nằm trong `tests/test_pipeline.py`. Biên bản kiểm tra riêng và snapshot chạy lỗi cũ chỉ lưu local.
 
 Kiểm tra bài làm trong môi trường Windows hiện tại:
 
