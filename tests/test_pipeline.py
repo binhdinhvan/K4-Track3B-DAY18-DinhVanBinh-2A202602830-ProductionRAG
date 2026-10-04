@@ -99,3 +99,66 @@ def test_evaluator_does_not_report_partial_scores_as_valid(monkeypatch, failure)
     result = m4.evaluate_ragas(["q"], ["a"], [["c"]], ["gt"])
     assert result["per_question"] == []
     assert "evaluation_error" in result
+
+
+def test_grounded_generation_uses_only_question_and_context():
+    from types import SimpleNamespace
+    from src.pipeline import generate_grounded_answer
+    calls = []
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="  15 ngày.  "))])
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    answer = generate_grounded_answer("Ngày phép?", ["Chính sách: 15 ngày."], client)
+    assert answer == "15 ngày."
+    assert len(calls) == 2
+    assert calls[0]["temperature"] == 0
+    assert calls[0]["messages"][1]["content"] == "Context:\nChính sách: 15 ngày.\n\nCâu hỏi: Ngày phép?"
+    assert "Bản nháp:" in calls[1]["messages"][1]["content"]
+
+
+def test_grounded_generation_without_context_does_not_call_api():
+    from src.pipeline import generate_grounded_answer
+    assert generate_grounded_answer("question", [], object()) == "Không tìm thấy thông tin."
+
+
+def test_grounded_generation_rejects_empty_completion():
+    from types import SimpleNamespace
+    from src.pipeline import generate_grounded_answer
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=" "))])
+    )))
+    with pytest.raises(RuntimeError, match="empty answer"):
+        generate_grounded_answer("question", ["context"], client)
+
+
+def test_grounded_generation_rejects_empty_verification():
+    from types import SimpleNamespace
+    from src.pipeline import generate_grounded_answer
+    outputs = iter(("Draft answer", ""))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=next(outputs)))])
+    )))
+    with pytest.raises(RuntimeError, match="empty verified answer"):
+        generate_grounded_answer("question", ["context"], client)
+
+
+@pytest.mark.parametrize("answer,valid", [
+    ("15.000.000 VNĐ * 2% = 300.000 VNĐ", True),
+    ("15.000.000 VNĐ * 0.067% * 5 ngày = 5.000 VNĐ", False),
+    ("15.000.000 * 2% * (20/30) = 1.000.000", False),
+    ("20.000.000 * 85% = 17.000.000", True),
+    ("10 / 0 = 0", False),
+])
+def test_explicit_arithmetic_is_checked(answer, valid):
+    from src.pipeline import _calculations_match
+    assert _calculations_match(answer) is valid
+
+
+def test_wrong_arithmetic_returns_source_instead_of_wrong_amount():
+    from types import SimpleNamespace
+    from src.pipeline import generate_grounded_answer
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="2 + 2 = 5"))])
+    )))
+    assert generate_grounded_answer("question", ["Original source"], client) == "Original source"

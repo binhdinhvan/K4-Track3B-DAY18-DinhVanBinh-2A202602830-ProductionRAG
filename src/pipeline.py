@@ -3,6 +3,9 @@ from __future__ import annotations
 """Production RAG Pipeline — Ghép toàn bộ M1+M2+M3+M4+M5."""
 
 import os, sys, time, json
+import ast
+import re
+from decimal import Decimal, InvalidOperation
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
@@ -16,6 +19,98 @@ from src.m3_rerank import CrossEncoderReranker
 from src.m4_eval import load_test_set, evaluate_ragas, failure_analysis, save_report
 from src.m5_enrichment import enrich_chunks
 from config import RERANK_TOP_K
+
+
+ANSWER_PROMPT = """Trả lời câu hỏi về chính sách bằng tiếng Việt, chỉ dựa trên context.
+- Trả lời trực tiếp đúng các ý được hỏi, thường trong 1–4 câu. Không thêm tiêu đề, ví dụ, công thức LaTeX hoặc điều kiện không cần thiết.
+- Khi có nhiều phiên bản, dùng chính sách hiện hành theo thông tin trong context.
+- Không thêm nghĩa vụ, ngoại lệ, giả định hay số liệu ngoài nguồn. Nếu thiếu thông tin cho một ý, nêu rõ ý đó chưa có thông tin; vẫn trả lời những ý có đủ nguồn.
+- Với câu hỏi về mức chung, trả lời mức chung trong nguồn; không yêu cầu thông tin cá nhân không cần thiết.
+- Nếu cần tính toán, dùng số liệu được nêu trong câu hỏi kết hợp quy tắc trong context; ghi một dòng phép tính ngắn. Phân biệt mức theo tháng với phí cho số ngày cụ thể; không tự giả định cách quy đổi chưa được quy định.
+"""
+
+VERIFICATION_PROMPT = """Kiểm tra bản nháp câu trả lời so với câu hỏi và context, rồi trả về câu trả lời cuối cùng ngắn gọn bằng tiếng Việt.
+Không sử dụng kiến thức hoặc chính sách ngoài context. Kiểm tra từng con số, đơn vị, phép tính, điều kiện và phiên bản. Loại bỏ chi tiết không có nguồn hoặc không được hỏi.
+Nếu có phép tính, phải kiểm tra lại kết quả số học. Không dùng tổng số ngày làm số ngày quá hạn. Không chuyển mức phí theo tháng thành khoản phạt cho số ngày nếu context chưa quy định cách quy đổi; trong trường hợp đó chỉ nêu mức phí theo tháng và giới hạn thông tin.
+Các số tiền, thời gian trong câu hỏi là dữ kiện của tình huống, không phải quy tắc chính sách mới. Chỉ suy luận kết quả khi context có quy tắc hỗ trợ.
+Trả lời trực tiếp 1–4 câu, không giải thích quá trình kiểm tra, không thêm tiêu đề hay LaTeX. Nếu thiếu nguồn cho một ý, nói rõ ý đó còn thiếu và vẫn trả lời các ý có đủ nguồn.
+"""
+
+
+def _calculations_match(answer: str) -> bool:
+    """Check explicit numeric equations; never execute model-generated code."""
+    text = re.sub(r"\b(?:VNĐ|VND|đồng|ngày)\b", "", answer.replace("**", ""), flags=re.I)
+
+    def normalize(match):
+        value = match.group()
+        if re.fullmatch(r"[1-9]\d{0,2}(?:[.,]\d{3})+", value):
+            return value.replace(".", "").replace(",", "")
+        return value.replace(",", ".")
+
+    def calculate(node):
+        if isinstance(node, ast.Expression):
+            return calculate(node.body)
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            return Decimal(str(node.value))
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value = calculate(node.operand)
+            return -value if isinstance(node.op, ast.USub) else value
+        if isinstance(node, ast.BinOp):
+            left, right = calculate(node.left), calculate(node.right)
+            if isinstance(node.op, ast.Add): return left + right
+            if isinstance(node.op, ast.Sub): return left - right
+            if isinstance(node.op, ast.Mult): return left * right
+            if isinstance(node.op, ast.Div): return left / right
+        raise ValueError("Unsupported arithmetic")
+
+    for match in re.finditer(r"(\d[\d.,% \t()+*/-]*?)\s*=\s*(\d+(?:[.,]\d+)*)", text):
+        if re.match(r"\s*[%+*/-]", text[match.end():]):
+            continue  # The right side is an expression, not a final numeric result.
+        expression = re.sub(r"\d+(?:[.,]\d+)*", normalize, match[1]).strip()
+        expression = re.sub(r"(\d+(?:\.\d+)?)%", r"(\1/100)", expression)
+        try:
+            tree = ast.parse(expression, mode="eval")
+            if len(list(ast.walk(tree))) > 100:
+                return False
+            actual = calculate(tree)
+            expected = Decimal(re.sub(r"\d+(?:[.,]\d+)*", normalize, match[2]))
+            if abs(actual - expected) > max(Decimal("0.01"), abs(actual) * Decimal("0.000001")):
+                return False
+        except (SyntaxError, ValueError, ArithmeticError, InvalidOperation):
+            return False
+    return True
+
+
+def generate_grounded_answer(query: str, contexts: list[str], client=None) -> str:
+    """Draft and verify against sources, rejecting explicit arithmetic mismatches."""
+    from config import OPENAI_MODEL, create_openai_client
+    if not contexts:
+        return "Không tìm thấy thông tin."
+    client = client or create_openai_client()
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL, temperature=0, max_tokens=350,
+        messages=[
+            {"role": "system", "content": ANSWER_PROMPT},
+            {"role": "user", "content": "Context:\n" + "\n\n".join(contexts) + "\n\nCâu hỏi: " + query},
+        ],
+    )
+    answer = response.choices[0].message.content
+    if not answer or not answer.strip():
+        raise RuntimeError("LLM returned an empty answer")
+    verified = client.chat.completions.create(
+        model=OPENAI_MODEL, temperature=0, max_tokens=350,
+        messages=[
+            {"role": "system", "content": VERIFICATION_PROMPT},
+            {"role": "user", "content": "Context:\n" + "\n\n".join(contexts)
+             + "\n\nCâu hỏi: " + query + "\n\nBản nháp: " + answer.strip()},
+        ],
+    ).choices[0].message.content
+    if not verified or not verified.strip():
+        raise RuntimeError("LLM returned an empty verified answer")
+    if not _calculations_match(verified):
+        print("  ⚠️  Arithmetic mismatch detected; using original source as fallback.", flush=True)
+        return contexts[0]
+    return verified.strip()
 
 
 def build_pipeline():
@@ -92,17 +187,11 @@ def run_query(query: str, search: HybridSearch, reranker: CrossEncoderReranker) 
         if len(contexts) >= RERANK_TOP_K:
             break
 
-    from config import OPENAI_API_KEY, OPENAI_MODEL, create_openai_client
+    from config import OPENAI_API_KEY
     start = time.perf_counter()
     if OPENAI_API_KEY and contexts:
         try:
-            client = create_openai_client()
-            context_str = "\n\n".join(contexts)
-            resp = client.chat.completions.create(model=OPENAI_MODEL, temperature=0, messages=[
-                {"role": "system", "content": "Trả lời CHỈ dựa trên context. Ưu tiên chính sách hiện hành khi có nhiều phiên bản. Trả lời đủ từng ý của câu hỏi; được tính toán từ số liệu có trong context và phải ghi công thức. Nếu thiếu thông tin, nêu rõ phần còn thiếu."},
-                {"role": "user", "content": f"Context:\n{context_str}\n\nCâu hỏi: {query}"},
-            ])
-            answer = resp.choices[0].message.content
+            answer = generate_grounded_answer(query, contexts)
         except Exception as e:
             print(f"  ⚠️  LLM generation failed: {e}", flush=True)
             answer = contexts[0]
