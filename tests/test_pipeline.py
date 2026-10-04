@@ -162,3 +162,34 @@ def test_wrong_arithmetic_returns_source_instead_of_wrong_amount():
         create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="2 + 2 = 5"))])
     )))
     assert generate_grounded_answer("question", ["Original source"], client) == "Original source"
+
+
+def test_advance_fee_uses_source_rate_without_daily_assumption():
+    from src.pipeline import calculate_advance_fee
+    policy = "# Chính sách tạm ứng\nThanh toán trong vòng **10 ngày**. Quá hạn tính phí **3%/tháng**."
+    answer = calculate_advance_fee("Tạm ứng 8 triệu, sau 14 ngày thanh toán", [policy])
+    assert "Quá hạn 4 ngày" in answer
+    assert "240.000 VNĐ/tháng" in answer
+    assert "chưa thể xác định khoản phí riêng" in answer
+    assert calculate_advance_fee("Tạm ứng 8 triệu công tác, sau 14 ngày", [policy]) is None
+    assert calculate_advance_fee("Tạm ứng 8 triệu, đã trả một phần, sau 14 ngày", [policy]) is None
+    assert calculate_advance_fee("Tạm ứng 8 triệu, sau 14 ngày", [policy + " Tính theo ngày."]) is None
+
+
+def test_multihop_retrieval_keeps_each_facet_source():
+    from src.pipeline import retrieve_contexts, decompose_query
+    query = "Nhân viên Senior có 6 năm thâm niên được nghỉ bao nhiêu ngày phép và lương trong khoảng nào?"
+    facets = decompose_query(query)
+    assert len(facets) == 2 and "Senior" in facets[1]
+    assert "ngày phép" not in facets[1]
+    assert "thâm niên" not in facets[1]
+    class Search:
+        parent_documents = {"leave": "Leave policy", "old": "Old leave", "salary": "Salary table"}
+        def search(self, question):
+            ids = ["salary", "leave"] if question == facets[1] else ["leave", "old"]
+            return [SearchResult(p, 1.0, {"parent_id": p}, "hybrid") for p in ids]
+    class Reranker:
+        def rerank(self, query, docs, top_k):
+            return [RerankResult(d["text"], d["score"], 1.0, d["metadata"], i+1) for i,d in enumerate(docs)]
+    contexts, _ = retrieve_contexts(query, Search(), Reranker())
+    assert contexts[:2] == ["Leave policy", "Salary table"]

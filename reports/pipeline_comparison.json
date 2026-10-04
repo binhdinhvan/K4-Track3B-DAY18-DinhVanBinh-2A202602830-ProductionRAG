@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-04",
+  "num_questions": 20,
+  "evaluation": "full production pipeline rerun including enrichment, retrieval, reranking, generation and RAGAS",
+  "before": {
+    "faithfulness": 0.8708333333333333,
+    "answer_relevancy": 0.792767451758615,
+    "context_precision": 0.9999999999241667,
+    "context_recall": 0.9333333333333333
+  },
+  "after": {
+    "faithfulness": 0.8708333333333333,
+    "answer_relevancy": 0.7956700850989111,
+    "context_precision": 0.9583333332675,
+    "context_recall": 0.9583333333333334
+  },
+  "delta": {
+    "faithfulness": 0.0,
+    "answer_relevancy": 0.002902633340296168,
+    "context_precision": -0.04166666665666663,
+    "context_recall": 0.025000000000000022
+  },
+  "ground_truth_unchanged": true,
+  "ground_truth_used_for_generation": false,
+  "target_questions": [
+    {
+      "question": "Một nhân viên Senior có 9 năm thâm niên được nghỉ bao nhiêu ngày phép năm và lương trong khoảng nào?",
+      "answer": "Nhân viên Senior có 9 năm thâm niên sẽ được nghỉ **18 ngày phép năm** (15 ngày + 3 ngày cộng thêm cho thâm niên). Lương của nhân viên Senior nằm trong khoảng **20.000.000 - 35.000.000 VNĐ/tháng**.",
+      "ground_truth": "Theo chính sách v2024: 15 ngày cơ bản + 3 ngày thâm niên (9÷3=3) = 18 ngày phép. Lương Senior (P3-P4): 20-35 triệu VNĐ/tháng.",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.8813191397774793,
+      "context_precision": 0.9999999999666667,
+      "context_recall": 1.0
+    },
+    {
+      "question": "Nhân viên tạm ứng 15 triệu, sau 20 ngày mới thanh toán. Bị phạt bao nhiêu?",
+      "answer": "Quá hạn 5 ngày (20 − 15). Mức phí là 2%/tháng trên số tiền chưa hoàn ứng: 15.000.000 × 2% = 300.000 VNĐ/tháng. Chính sách chưa quy định cách tính theo ngày, nên chưa thể xác định khoản phí riêng cho 5 ngày quá hạn.",
+      "ground_truth": "Thời hạn thanh toán là 15 ngày. Quá hạn 5 ngày, bị tính phí 2%/tháng trên 15.000.000 VNĐ = 300.000 VNĐ/tháng (tính pro-rata khoảng 50.000 VNĐ cho 5 ngày).",
+      "faithfulness": 0.25,
+      "answer_relevancy": 0.0,
+      "context_precision": 0.99999999995,
+      "context_recall": 0.6666666666666666
+    }
+  ],
+  "limitations": [
+    "Context precision decreased; overall faithfulness remained unchanged.",
+    "Advance policy does not specify daily proration; the answer reports monthly fees and this uncertainty.",
+    "Advance answer received low RAGAS scores despite correct arithmetic; claim-level judging traces are needed to establish the reason.",
+    "Rebuilt enrichment and LLM judging can vary, so this is not a controlled single-variable ablation.",
+    "Coordinated-query rule supports two facets and is not general query understanding."
+  ]
+}

@@ -86,6 +86,9 @@ def generate_grounded_answer(query: str, contexts: list[str], client=None) -> st
     from config import OPENAI_MODEL, create_openai_client
     if not contexts:
         return "Không tìm thấy thông tin."
+    calculated = calculate_advance_fee(query, contexts)
+    if calculated is not None:
+        return calculated
     client = client or create_openai_client()
     response = client.chat.completions.create(
         model=OPENAI_MODEL, temperature=0, max_tokens=350,
@@ -111,6 +114,91 @@ def generate_grounded_answer(query: str, contexts: list[str], client=None) -> st
         print("  ⚠️  Arithmetic mismatch detected; using original source as fallback.", flush=True)
         return contexts[0]
     return verified.strip()
+
+
+def calculate_advance_fee(query: str, contexts: list[str]) -> str | None:
+    """Calculate a simple unpaid advance using the retrieved deadline and rate.
+
+    Decline cases with partial payments or business-trip deadline exceptions.
+    The source's monthly rate does not establish a daily proration rule.
+    """
+    lowered = query.lower()
+    if "tạm ứng" not in lowered or any(word in lowered for word in
+            ("công tác", "một phần", "còn lại", "đã hoàn", "đã trả")):
+        return None
+    amount = re.search(r"tạm ứng\s+(\d+(?:[.,]\d+)*)\s*(triệu|vnđ|vnd|đồng)", lowered)
+    days = re.search(r"sau\s+(\d+)\s+ngày", lowered)
+    if not amount or not days:
+        return None
+    for context in contexts:
+        if "# Chính sách tạm ứng" not in context:
+            continue
+        deadline = re.search(r"trong vòng\s+\*{0,2}(\d+)\s+ngày", context)
+        rate = re.search(r"tính phí\s+\*{0,2}(\d+(?:[.,]\d+)?)%/tháng", context)
+        if not deadline or not rate:
+            continue
+        # Do not apply this limited monthly-only calculator to daily-rate policies.
+        if re.search(r"pro.?rata|theo ngày|%/ngày|quy đổi", context, re.I):
+            return None
+        raw = amount[1]
+        if amount[2] == "triệu":
+            principal = Decimal(raw.replace(",", ".")) * 1_000_000
+        else:
+            if not re.fullmatch(r"\d+|[1-9]\d{0,2}(?:[.,]\d{3})+", raw):
+                return None
+            principal = Decimal(raw.replace(".", "").replace(",", ""))
+        overdue = max(0, int(days[1]) - int(deadline[1]))
+        if not overdue:
+            return f"Thanh toán sau {days[1]} ngày vẫn trong thời hạn {deadline[1]} ngày, nên chưa phát sinh phí quá hạn."
+        monthly_rate = Decimal(rate[1].replace(",", "."))
+        monthly_fee = principal * monthly_rate / 100
+        money = lambda value: format(value, ",.0f").replace(",", ".")
+        return (f"Quá hạn {overdue} ngày ({days[1]} − {deadline[1]}). "
+                f"Mức phí là {rate[1]}%/tháng trên số tiền chưa hoàn ứng: "
+                f"{money(principal)} × {rate[1]}% = {money(monthly_fee)} VNĐ/tháng. "
+                f"Chính sách chưa quy định cách tính theo ngày, nên chưa thể xác định khoản phí riêng cho {overdue} ngày quá hạn.")
+    return None
+
+
+def decompose_query(query: str) -> list[str]:
+    """Split coordinated questions while retaining the shared subject as context."""
+    parts = re.split(r"\s+và\s+", query, flags=re.I)
+    if len(parts) != 2 or not re.search(r"bao nhiêu|khoảng nào|ai|cần gì", parts[1], re.I):
+        return [query]
+    subject = re.split(r"\s+(?:được|cần|muốn)\s+", parts[0], maxsplit=1, flags=re.I)[0]
+    # Tenure belongs to the leave facet; carrying it into salary search can
+    # make the reranker prefer leave policies over the salary table again.
+    subject = re.sub(r"\s+có\s+\d+\s+(?:năm|tháng|ngày)\b.*", "", subject, flags=re.I)
+    return [parts[0].rstrip(" ?") + "?", parts[1].strip(" ?") + "?\nBối cảnh: " + subject]
+
+
+def retrieve_contexts(query: str, search, reranker) -> tuple[list[str], dict]:
+    """Reserve one parent per question facet, then fill from the full query."""
+    facets = decompose_query(query)
+    queries = [query] if len(facets) == 1 else [query, *facets]
+    ranked_lists = []
+    retrieval_ms = rerank_ms = 0.0
+    for subquery in queries:
+        start = time.perf_counter()
+        hits = search.search(subquery)
+        retrieval_ms += (time.perf_counter() - start) * 1000
+        docs = [{"text": r.text, "score": r.score, "metadata": r.metadata} for r in hits]
+        start = time.perf_counter()
+        ranked_lists.append(reranker.rerank(subquery, docs, top_k=len(docs)) or hits)
+        rerank_ms += (time.perf_counter() - start) * 1000
+    parents = getattr(search, "parent_documents", {})
+    contexts = []
+    def add(hit):
+        text = parents.get(hit.metadata.get("parent_id"), hit.text)
+        if text not in contexts and len(contexts) < RERANK_TOP_K:
+            contexts.append(text)
+    if len(facets) > 1:
+        for ranked in ranked_lists[1:]:
+            if ranked:
+                add(ranked[0])
+    for hit in ranked_lists[0]:
+        add(hit)
+    return contexts, {"retrieval_ms": retrieval_ms, "rerank_ms": rerank_ms}
 
 
 def build_pipeline():
@@ -169,23 +257,7 @@ def build_pipeline():
 
 def run_query(query: str, search: HybridSearch, reranker: CrossEncoderReranker) -> tuple[str, list[str]]:
     """Run single query through pipeline."""
-    start = time.perf_counter()
-    results = search.search(query)
-    retrieval_ms = (time.perf_counter() - start) * 1000
-    docs = [{"text": r.text, "score": r.score, "metadata": r.metadata} for r in results]
-    start = time.perf_counter()
-    reranked = reranker.rerank(query, docs, top_k=len(docs))
-    rerank_ms = (time.perf_counter() - start) * 1000
-    contexts = []
-    seen = set()
-    parent_documents = getattr(search, "parent_documents", {})
-    for result in reranked or results:
-        context = parent_documents.get(result.metadata.get("parent_id"), result.text)
-        if context not in seen:
-            seen.add(context)
-            contexts.append(context)
-        if len(contexts) >= RERANK_TOP_K:
-            break
+    contexts, timings = retrieve_contexts(query, search, reranker)
 
     from config import OPENAI_API_KEY
     start = time.perf_counter()
@@ -199,7 +271,7 @@ def run_query(query: str, search: HybridSearch, reranker: CrossEncoderReranker) 
         answer = contexts[0] if contexts else "Không tìm thấy thông tin."
     if hasattr(search, "query_timings"):
         search.query_timings.append({
-            "question": query, "retrieval_ms": retrieval_ms, "rerank_ms": rerank_ms,
+            "question": query, **timings,
             "generation_ms": (time.perf_counter() - start) * 1000,
         })
     return answer, contexts

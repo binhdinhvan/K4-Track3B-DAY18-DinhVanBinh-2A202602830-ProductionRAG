@@ -1,137 +1,136 @@
 {
   "build_ms": {
-    "chunking_ms": 93.231201171875,
-    "enrichment_ms": 414316.22529029846,
-    "indexing_ms": 49758.83364677429,
-    "reranker_load_ms": 8849.380016326904
+    "chunking_ms": 150.10404586791992,
+    "enrichment_ms": 95116.87278747559,
+    "indexing_ms": 41425.85897445679,
+    "reranker_load_ms": 6038.978099822998
   },
-  "ragas_ms": 57960.423500000616,
   "queries": [
     {
       "question": "Nhân viên được nghỉ bao nhiêu ngày khi kết hôn?",
-      "retrieval_ms": 162.3717000002216,
-      "rerank_ms": 4941.692799999146,
-      "generation_ms": 6981.2275000003865
+      "retrieval_ms": 109.02469999928144,
+      "rerank_ms": 4050.1487999990786,
+      "generation_ms": 2432.738800000152
     },
     {
       "question": "Bảo hiểm sức khỏe PVI có hạn mức bao nhiêu cho nhân viên?",
-      "retrieval_ms": 189.0492999991693,
-      "rerank_ms": 5133.702999999514,
-      "generation_ms": 4496.553000000858
+      "retrieval_ms": 127.26169999950798,
+      "rerank_ms": 4304.288599998472,
+      "generation_ms": 3522.6012999992236
     },
     {
       "question": "Phụ cấp ăn trưa hàng tháng là bao nhiêu?",
-      "retrieval_ms": 172.0357000012882,
-      "rerank_ms": 5147.925400000531,
-      "generation_ms": 3492.265099999713
+      "retrieval_ms": 126.88449999950535,
+      "rerank_ms": 4422.13449999872,
+      "generation_ms": 3204.9652000005153
     },
     {
       "question": "Nhân viên được nghỉ bao nhiêu ngày phép năm?",
-      "retrieval_ms": 171.23730000093929,
-      "rerank_ms": 5074.985100000049,
-      "generation_ms": 3461.860599998545
+      "retrieval_ms": 121.60109999967972,
+      "rerank_ms": 4008.6569000013696,
+      "generation_ms": 3393.4234000007564
     },
     {
       "question": "Thâm niên bao nhiêu năm thì được cộng thêm ngày phép?",
-      "retrieval_ms": 165.03740000007383,
-      "rerank_ms": 5197.590800000398,
-      "generation_ms": 3088.1064999994123
+      "retrieval_ms": 124.89739999909943,
+      "rerank_ms": 4127.836699999534,
+      "generation_ms": 3086.582299998554
     },
     {
       "question": "Mật khẩu phải có tối thiểu bao nhiêu ký tự?",
-      "retrieval_ms": 182.81299999944167,
-      "rerank_ms": 5506.449800001064,
-      "generation_ms": 3994.552600001043
+      "retrieval_ms": 112.15160000028845,
+      "rerank_ms": 4483.396799998445,
+      "generation_ms": 3181.4360999997007
     },
     {
       "question": "Bao lâu phải đổi mật khẩu một lần?",
-      "retrieval_ms": 178.19300000155636,
-      "rerank_ms": 5438.938299999791,
-      "generation_ms": 2340.5506999988575
+      "retrieval_ms": 135.3663999998389,
+      "rerank_ms": 4507.460799999535,
+      "generation_ms": 3030.1451000013913
     },
     {
       "question": "Có cần kích hoạt xác thực đa yếu tố (MFA) không?",
-      "retrieval_ms": 215.81669999977748,
-      "rerank_ms": 5480.23959999955,
-      "generation_ms": 3344.3574999982957
+      "retrieval_ms": 121.90750000081607,
+      "rerank_ms": 4976.085299998886,
+      "generation_ms": 4564.100899999175
     },
     {
       "question": "Nhân viên thử việc có được nghỉ phép năm không?",
-      "retrieval_ms": 164.51299999971525,
-      "rerank_ms": 4985.963999999512,
-      "generation_ms": 4482.409700000062
+      "retrieval_ms": 116.57630000081554,
+      "rerank_ms": 4227.839200000744,
+      "generation_ms": 2628.2059000004665
     },
     {
       "question": "Khi phát hiện malware trên máy, nhân viên có nên tự xử lý không?",
-      "retrieval_ms": 177.45499999909953,
-      "rerank_ms": 5883.988999999929,
-      "generation_ms": 4300.939799999469
+      "retrieval_ms": 131.0455999991973,
+      "rerank_ms": 4666.281199999503,
+      "generation_ms": 2855.4509000005055
     },
     {
       "question": "Nhân viên thử việc có được hưởng bảo hiểm sức khỏe PVI không?",
-      "retrieval_ms": 190.9083999998984,
-      "rerank_ms": 5084.917200001655,
-      "generation_ms": 2976.5452000010555
+      "retrieval_ms": 120.21610000010696,
+      "rerank_ms": 4279.087900000377,
+      "generation_ms": 3024.985000000015
     },
     {
       "question": "Một nhân viên Senior có 9 năm thâm niên được nghỉ bao nhiêu ngày phép năm và lương trong khoảng nào?",
-      "retrieval_ms": 194.747899999129,
-      "rerank_ms": 5326.7881000010675,
-      "generation_ms": 5425.462600000174
+      "retrieval_ms": 438.51079999876674,
+      "rerank_ms": 13131.011999999828,
+      "generation_ms": 4620.957700000872
     },
     {
       "question": "Nếu cần mua một chiếc laptop 30 triệu cho nhân viên mới, ai phê duyệt và cần gì từ phòng CNTT?",
-      "retrieval_ms": 210.2297000001272,
-      "rerank_ms": 5737.657800000306,
-      "generation_ms": 4911.842500001512
+      "retrieval_ms": 441.99789999947825,
+      "rerank_ms": 13516.773600000306,
+      "generation_ms": 5031.998099999328
     },
     {
       "question": "Nhân viên được tài trợ khóa học 25 triệu, nghỉ việc sau 8 tháng hoàn thành khóa học. Phải hoàn trả bao nhiêu?",
-      "retrieval_ms": 201.47849999921164,
-      "rerank_ms": 5556.889999999839,
-      "generation_ms": 5324.519800000417
+      "retrieval_ms": 205.4293000001053,
+      "rerank_ms": 6168.68439999962,
+      "generation_ms": 3780.0418000006175
     },
     {
       "question": "Mentor và buddy của nhân viên mới có thể là cùng một người không? Quản lý trực tiếp có thể làm mentor không?",
-      "retrieval_ms": 199.8886000001221,
-      "rerank_ms": 5991.600900000776,
-      "generation_ms": 4244.443499999761
+      "retrieval_ms": 203.71369999884337,
+      "rerank_ms": 5744.944000000032,
+      "generation_ms": 4593.84080000018
     },
     {
       "question": "Muốn mua thiết bị trị giá 55 triệu cần ai phê duyệt?",
-      "retrieval_ms": 222.93639999952575,
-      "rerank_ms": 5285.668499998792,
-      "generation_ms": 3479.045199999746
+      "retrieval_ms": 145.23130000088713,
+      "rerank_ms": 4885.936900000161,
+      "generation_ms": 3585.1934000002075
     },
     {
       "question": "Nhân viên tạm ứng 15 triệu, sau 20 ngày mới thanh toán. Bị phạt bao nhiêu?",
-      "retrieval_ms": 182.312599999932,
-      "rerank_ms": 5922.473800001171,
-      "generation_ms": 5274.560800000472
+      "retrieval_ms": 165.49070000110078,
+      "rerank_ms": 5694.972400000552,
+      "generation_ms": 0.8221999996749219
     },
     {
       "question": "Lương thử việc của nhân viên Junior mức cao nhất là bao nhiêu?",
-      "retrieval_ms": 170.4343000001245,
-      "rerank_ms": 5159.904199999801,
-      "generation_ms": 3987.7760999988823
+      "retrieval_ms": 158.3881000005931,
+      "rerank_ms": 5096.797399999559,
+      "generation_ms": 4331.327400001101
     },
     {
       "question": "Thông tin lương thuộc cấp độ phân loại dữ liệu nào?",
-      "retrieval_ms": 134.1709999996965,
-      "rerank_ms": 4671.653299999889,
-      "generation_ms": 3616.3000999986252
+      "retrieval_ms": 209.7611000008328,
+      "rerank_ms": 6918.94719999982,
+      "generation_ms": 2839.4975999999588
     },
     {
       "question": "Nghỉ phép không lương 20 ngày cần ai phê duyệt?",
-      "retrieval_ms": 186.98159999985364,
-      "rerank_ms": 5859.039900000425,
-      "generation_ms": 4863.313100000596
+      "retrieval_ms": 154.37849999943865,
+      "rerank_ms": 5041.170399999828,
+      "generation_ms": 2863.298300000679
     }
   ],
+  "ragas_ms": 39488.34050000005,
   "evaluation_status": "complete",
   "measurement_metadata": {
-    "build_retrieval_rerank": "original pipeline run",
-    "generation_ragas": "regenerated all 20 answers on saved contexts with two-pass verification and arithmetic guard",
-    "end_to_end_rerun": false
+    "end_to_end_rerun": true,
+    "evaluator_model": "gpt-4o-mini"
   }
 }
